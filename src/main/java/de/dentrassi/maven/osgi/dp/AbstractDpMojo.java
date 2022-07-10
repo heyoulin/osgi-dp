@@ -57,6 +57,7 @@ import org.eclipse.aether.util.artifact.JavaScopes;
 import org.eclipse.tycho.ReactorProject;
 import org.eclipse.tycho.core.DependencyResolver;
 import org.eclipse.tycho.core.TychoProject;
+import org.eclipse.tycho.core.osgitools.DefaultReactorProject;
 import org.osgi.framework.Version;
 
 import com.google.common.io.ByteStreams;
@@ -154,8 +155,8 @@ public abstract class AbstractDpMojo extends AbstractMojo {
         if (facet == null) {
             throw new IllegalStateException(format("Unknown packaging '%s'", packaging));
         }
-
-        return new TychoWalker(facet.getDependencyWalker(this.project), getLog());
+        final ReactorProject thisProject = DefaultReactorProject.adapt(project);
+        return new TychoWalker(facet.getDependencyWalker(thisProject), getLog());
     }
 
     public void setVersion(final String version) {
@@ -277,9 +278,7 @@ public abstract class AbstractDpMojo extends AbstractMojo {
                 getLog().debug("No BSN");
                 return;
             }
-            if (bsn != null) {
-                bsn = bsn.split(";", 2)[0];
-            }
+            bsn = bsn.split(";", 2)[0];
 
             final String version = mf.getMainAttributes().getValue("Bundle-Version");
 
@@ -314,7 +313,7 @@ public abstract class AbstractDpMojo extends AbstractMojo {
 
     private Version makeQualifiedVersion() {
         try {
-            final ReactorProject rp = (ReactorProject) this.project.getContextValue(ReactorProject.CTX_REACTOR_PROJECT);
+            final ReactorProject rp = DefaultReactorProject.adapt(project);
             if (rp != null) {
                 return new Version(rp.getExpandedVersion());
             }

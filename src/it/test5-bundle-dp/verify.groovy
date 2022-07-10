@@ -24,6 +24,6 @@ return entries.equals(
         [
             "META-INF/MANIFEST.MF",
             "test5.bundle1_0.0.1.SNAPSHOT.jar",
-            "ch.qos.logback.classic_1.1.7.jar"
+            "ch.qos.logback.classic_1.2.11.jar"
         ]
         .toSet());

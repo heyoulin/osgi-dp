@@ -55,13 +55,14 @@ public class TychoWalker implements ArtifactWalker {
                     if (p != null) {
                         location = p.getArtifact();
                     } else {
-                        location = plugin.getLocation();
+                        location = plugin.getLocation(false);
                     }
 
                     if (location == null) {
                         TychoWalker.this.logger.warn(format("Unable to locate artifact: %s", plugin));
                     }
 
+                    assert location != null;
                     if (!location.isFile()) {
                         TychoWalker.this.logger.warn(format("Location '%s' is not a file", location));
                         return;

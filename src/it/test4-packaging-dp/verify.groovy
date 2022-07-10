@@ -23,6 +23,6 @@ println("Found: " + entries)
 return entries.equals(
         [
             "META-INF/MANIFEST.MF",
-            "slf4j.api_1.7.21.jar"
+            "slf4j.api_1.7.36.jar"
         ]
         .toSet());
