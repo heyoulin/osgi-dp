@@ -3,7 +3,7 @@
 
 	<groupId>com.github.heyoulin</groupId>
 	<artifactId>osgi-dp</artifactId>
-	<version>0.5.0</version>
+	<version>0.5.2</version>
 
 	<packaging>maven-plugin</packaging>
 
