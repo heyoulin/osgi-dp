@@ -55,7 +55,7 @@ public class TychoWalker implements ArtifactWalker {
                     if (p != null) {
                         location = p.getArtifact();
                     } else {
-                        location = plugin.getLocation(false);
+                        location = plugin.getLocation().get();
                     }
 
                     if (location == null) {

@@ -14,7 +14,7 @@
   <build>
   	<plugins>
   		<plugin>
-  			<groupId>de.dentrassi.maven</groupId>
+  			<groupId>com.github.heyoulin</groupId>
   			<artifactId>osgi-dp</artifactId>
   			<executions>
   				<execution>
