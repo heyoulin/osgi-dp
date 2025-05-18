@@ -13,14 +13,16 @@ package de.dentrassi.maven.osgi.dp;
 
 import static java.lang.String.format;
 
+import com.google.common.io.ByteStreams;
+import de.dentrassi.maven.osgi.dp.internal.ArtifactWalker;
+import de.dentrassi.maven.osgi.dp.internal.ProjectWalker;
+import de.dentrassi.maven.osgi.dp.internal.TychoWalker;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,14 +30,15 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
-
-import org.apache.maven.artifact.repository.ArtifactRepository;
+import java.util.regex.Pattern;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
@@ -47,28 +50,20 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.graph.DefaultDependencyNode;
-import org.eclipse.aether.impl.ArtifactResolver;
+import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.eclipse.aether.util.artifact.JavaScopes;
 import org.eclipse.tycho.ReactorProject;
-import org.eclipse.tycho.core.DependencyResolver;
 import org.eclipse.tycho.core.TychoProject;
 import org.eclipse.tycho.core.osgitools.DefaultReactorProject;
 import org.osgi.framework.Version;
 
-import com.google.common.io.ByteStreams;
-
-import de.dentrassi.maven.osgi.dp.internal.ArtifactWalker;
-import de.dentrassi.maven.osgi.dp.internal.ProjectWalker;
-import de.dentrassi.maven.osgi.dp.internal.TychoWalker;
-
 public abstract class AbstractDpMojo extends AbstractMojo {
-
-    private static final DateFormat TIMESTAMP_FORMAT = new SimpleDateFormat("yyyyMMddHHmmss");
 
     /**
      * The maven project
@@ -81,6 +76,12 @@ public abstract class AbstractDpMojo extends AbstractMojo {
 
     @Component
     private RepositorySystem repoSystem;
+
+    /**
+     * The project's remote repositories to use for the resolution of project dependencies.
+     */
+    @Parameter(defaultValue = "${project.remoteProjectRepositories}", readonly = true)
+    private List<RemoteRepository> projectRepos;
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true, required = true)
     private RepositorySystemSession repositorySession;
@@ -104,9 +105,6 @@ public abstract class AbstractDpMojo extends AbstractMojo {
     @Component
     protected MavenProjectHelper projectHelper;
 
-    @Component
-    private DependencyResolver dependencyResolver;
-
     private final Set<String> tychoWalkerProjects = new HashSet<>(Arrays.asList("eclipse-feature"));
 
     @Component(role = TychoProject.class)
@@ -117,15 +115,6 @@ public abstract class AbstractDpMojo extends AbstractMojo {
      */
     @Parameter
     private Dependency[] additionalDependencies;
-
-    @Component
-    private ArtifactResolver resolver;
-
-    @Parameter(property = "localRepository", readonly = true)
-    private ArtifactRepository localRepository;
-
-    @Parameter(property = "project.remoteArtifactRepositories", readonly = true)
-    private List<ArtifactRepository> remoteRepositories;
 
     /**
      * An optional explicit version
@@ -139,6 +128,9 @@ public abstract class AbstractDpMojo extends AbstractMojo {
      */
     @Parameter(property = "version")
     private String version;
+
+    @Parameter(property = "versionPartsSubstitutions")
+    private Properties versionPartsSubstitutions;
 
     public AbstractDpMojo() {
         super();
@@ -244,14 +236,22 @@ public abstract class AbstractDpMojo extends AbstractMojo {
                         dep.getClassifier(), dep.getType(), dep.getVersion());
                 final org.eclipse.aether.graph.Dependency adep = new org.eclipse.aether.graph.Dependency(art,
                         JavaScopes.RUNTIME);
-                requests.add(new ArtifactRequest(new DefaultDependencyNode(adep)));
+                DefaultDependencyNode node = new DefaultDependencyNode(adep);
+                node.setRepositories(projectRepos);
+                requests.add(new ArtifactRequest(node));
             }
 
-            final List<ArtifactResult> result = this.resolver.resolveArtifacts(this.repositorySession, requests);
+            final List<ArtifactResult> result = this.repoSystem.resolveArtifacts(this.repositorySession, requests);
 
             for (final ArtifactResult ares : result) {
                 getLog().debug("Additional dependency: " + ares);
-                processArtifact(manifest, files, ares.getArtifact().getFile());
+                Artifact artifact = ares.getArtifact();
+                File file = artifact.getFile();
+                if (file == null) {
+                    getLog().info("Skipping " + artifact + " because it has no file");
+                    return;
+                }
+                processArtifact(manifest, files, artifact.getFile());
             }
         } catch (final ArtifactResolutionException e) {
             throw new MojoExecutionException("Failed to resolve additional dependencies", e);
@@ -321,9 +321,18 @@ public abstract class AbstractDpMojo extends AbstractMojo {
             getLog().debug("Failed to get qualified tycho version", e);
         }
 
-        String version = this.project.getVersion();
+
+        String version = Optional.ofNullable(versionPartsSubstitutions)
+                .orElseGet(Properties::new)
+                .entrySet()
+                .stream()
+                .reduce(
+                        this.project.getVersion(),
+                        (aVersion, substitution) -> aVersion.replaceAll(Pattern.quote(String.valueOf(substitution.getKey())), String.valueOf(substitution.getValue())),
+                        (v1, v2) -> v2);
+
         if (version.endsWith("-SNAPSHOT")) {
-            version = version.replaceAll("-SNAPSHOT$", "." + TIMESTAMP_FORMAT.format(this.session.getStartTime()));
+            version = version.replaceAll("-SNAPSHOT$", "." + this.session.getStartTime().toInstant().getEpochSecond());
         }
 
         return new Version(version);
