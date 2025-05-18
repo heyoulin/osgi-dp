@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public interface ArtifactWalker {
-    public class Entry {
+    class Entry {
         private final Path location;
 
         public Entry(final Path location) {
@@ -27,9 +27,9 @@ public interface ArtifactWalker {
     }
 
     @FunctionalInterface
-    public interface ArtifactConsumer {
-        public void accept(Entry entry) throws IOException;
+    interface ArtifactConsumer {
+        void accept(Entry entry) throws IOException;
     }
 
-    public void walk(ArtifactConsumer consumer);
+    void walk(ArtifactConsumer consumer);
 }

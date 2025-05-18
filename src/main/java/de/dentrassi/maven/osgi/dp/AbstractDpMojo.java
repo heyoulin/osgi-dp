@@ -105,7 +105,7 @@ public abstract class AbstractDpMojo extends AbstractMojo {
     @Component
     protected MavenProjectHelper projectHelper;
 
-    private final Set<String> tychoWalkerProjects = new HashSet<>(Arrays.asList("eclipse-feature"));
+    private final Set<String> tychoWalkerProjects = new HashSet<>(List.of("eclipse-feature"));
 
     @Component(role = TychoProject.class)
     private Map<String, TychoProject> projectTypes;
@@ -297,7 +297,7 @@ public abstract class AbstractDpMojo extends AbstractMojo {
 
     private String makeVersion(final boolean osgiVersion) {
         if (this.version != null) {
-            return this.version.toString();
+            return this.version;
         }
 
         if (this.useQualifiedFilename) {

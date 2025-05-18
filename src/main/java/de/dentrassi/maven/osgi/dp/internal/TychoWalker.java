@@ -35,10 +35,6 @@ public class TychoWalker implements ArtifactWalker {
     @Override
     public void walk(final ArtifactConsumer consumer) {
         this.walker.walk(new ArtifactDependencyVisitor() {
-            @Override
-            public boolean visitFeature(final FeatureDescription feature) {
-                return true;
-            }
 
             @Override
             public void visitPlugin(final PluginDescription plugin) {
@@ -55,7 +51,7 @@ public class TychoWalker implements ArtifactWalker {
                     if (p != null) {
                         location = p.getArtifact();
                     } else {
-                        location = plugin.getLocation().get();
+                        location = plugin.getLocation().orElse(null);
                     }
 
                     if (location == null) {
